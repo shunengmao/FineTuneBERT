@@ -25,7 +25,8 @@ def evaluate(net, criterion, dataloader, args):
 
     with torch.no_grad():
         for seq, attn_masks, labels in dataloader:
-            seq, attn_masks, labels = seq.cuda(args.gpu), attn_masks.cuda(args.gpu), labels.cuda(args.gpu)
+            if torch.cuda.is_available():
+                seq, attn_masks, labels = seq.cuda(args.gpu), attn_masks.cuda(args.gpu), labels.cuda(args.gpu)
             logits = net(seq, attn_masks)
             mean_loss += criterion(logits.squeeze(-1), labels.float()).item()
             mean_acc += get_accuracy_from_logits(logits, labels)
@@ -42,9 +43,11 @@ def train(net, criterion, opti, train_loader, val_loader, args):
         
         for it, (seq, attn_masks, labels) in enumerate(train_loader):
             #Clear gradients
-            opti.zero_grad()  
-            #Converting these to cuda tensors
-            seq, attn_masks, labels = seq.cuda(args.gpu), attn_masks.cuda(args.gpu), labels.cuda(args.gpu)
+            opti.zero_grad()
+            
+            if torch.cuda.is_available():
+                #Converting these to cuda tensors
+                seq, attn_masks, labels = seq.cuda(args.gpu), attn_masks.cuda(args.gpu), labels.cuda(args.gpu)
 
             #Obtaining the logits from the model
             logits = net(seq, attn_masks)
@@ -86,7 +89,10 @@ if __name__ == "__main__":
     print("Building model! (This might take time if you are running this for first time)")
     st = time.time()
     net = SentimentClassifier(args.freeze_bert)
-    net.cuda(args.gpu) #Enable gpu support for the model
+    if not torch.cuda.is_available():
+        net.cpu()
+    else:
+        net.cuda(args.gpu) #Enable gpu support for the model
     print("Done in {} seconds".format(time.time() - st))
 
     print("Creating criterion and optimizer objects")
